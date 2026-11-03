@@ -632,10 +632,10 @@ export const Plugins = (ui: UI, d: Data) => {
 
       {Section(ui, 'Хуки з налаштувань', (s?.hooks ?? []).length === 0 ? 'не налаштовано' : 'подія → кількість', (
         <Box flexDirection="row" gap={2} flexWrap="wrap">
-          {(s?.hooks ?? []).map(h => (
+          {(s?.hooks ?? []).map(hook => (
             <Text>
-              <Text color="permission">{h.event}</Text>
-              <Text dimColor> ×{h.count}</Text>
+              <Text color="permission">{hook.event}</Text>
+              <Text dimColor> ×{hook.count}</Text>
             </Text>
           ))}
         </Box>
@@ -716,9 +716,9 @@ const contextSvg = (s: DashSnap) => {
       `<line x1="${ax.toFixed(1)}" x2="${ax.toFixed(1)}" y1="-4" y2="32" stroke="#e06c75" stroke-width="2" stroke-dasharray="3 2"><title>${xml(`Поріг автостиснення: ${fmtTok(s.autoCompactAt)}`)}</title></line>`,
     )
   }
-  const h = 40 + Math.ceil(used.length / 3) * 20 + 6
+  const height = 40 + Math.ceil(used.length / 3) * 20 + 6
   return {
-    source: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -6 ${W} ${h + 6}" width="${W}" height="${h + 6}">${segs.join('')}${legend.join('')}</svg>`,
+    source: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -6 ${W} ${height + 6}" width="${W}" height="${height + 6}">${segs.join('')}${legend.join('')}</svg>`,
     alt: used.map(c => `${c.name} ${fmtTok(c.tokens)}`).join(', '),
   }
 }

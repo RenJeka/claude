@@ -23,6 +23,9 @@ test('every tab draws, on every surface, after a tool call', async ($, on) => {
   on('session.start', (_, e) => ({ cwd: e.cwd }))
   on('session.messages', () => ({ value: [] }))
   on('tool.call', () => ({ result: {} }))
+  on('settings.read', () => ({
+    value: { hooks: { PreToolUse: [{ matcher: 'Bash', hooks: [{ type: 'command', command: 'x' }] }] } },
+  }))
 
   await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true })
   await $.tool.call({ tool: 'Bash', command: 'ls' })
@@ -43,10 +46,34 @@ test('every tab draws, on every surface, after a tool call', async ($, on) => {
     await ui.press({ key: 'tab-mcp' })
     expect((await ui.find({ type: 'Text', text: /^wmux$/ }))?.text).toMatch(/^wmux$/)
 
+    await ui.press({ key: 'tab-plugins' })
+    expect((await ui.find({ type: 'Text', text: /PreToolUse/ }))?.text).toMatch(/PreToolUse/)
+
     await ui.press({ key: 'tab-timeline' })
     expect((await ui.find({ type: 'Text', text: /Шкала часу/ }))?.text).toMatch(/Шкала часу/)
     await ui.unmount()
   }
+})
+
+test('the button above the prompt opens the pane', async ($, on) => {
+  mock.clock(on)
+  const opened: string[] = []
+  on('ui.panes', () => ({ value: [] }))
+  on('ui.open', (_, e) => {
+    opened.push(e.id)
+    return { value: { isPlaced: true } }
+  })
+
+  const ui = await $.ui.mount({
+    plugin: 'session-dash',
+    component: 'AbovePrompt',
+    surface: 'desktop',
+    props: { hasSurvey: false, isWorking: false, maxRows: 10, bodyColumns: 80, scroll: { offset: 0, bodyRows: 10 } },
+  })
+  expect((await ui.find({ type: 'Text', text: /інструментів 0/ }))?.text).toMatch(/інструментів 0/)
+  await ui.press({ key: 'dash-toggle' })
+  expect(opened).toEqual(['session-dash'])
+  await ui.unmount()
 })
 
 test('a value an earlier version stored is declined', async ($, on) => {

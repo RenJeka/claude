@@ -3,7 +3,7 @@ import type { EngineInterface, Register } from 'claude-code'
 
 import type { DashEvent, DashKind, DashStats } from '../types'
 import { backfill, collect, emptyStats } from './collect'
-import { clip, mcpServerOf, mcpToolOf } from './format'
+import { clip, fmtUsd, mcpServerOf, mcpToolOf } from './format'
 import { Agents, Context, Header, Mcp, Overview, Plugins, Skills, Timeline } from './views'
 import type { Acts, Data, UI } from './views'
 
@@ -245,6 +245,40 @@ export const register: Register = on => {
     return result
   }).catch(($, e, next) => next(e))
 
+  // One row above the prompt: a button that opens or closes the pane, and the
+  // session in a few numbers.
+  on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
+    if (e.props.hasSurvey) return next(e)
+    const { Box, Button, Text } = $.ui.resolve(e)
+    const [st, s] = await Promise.all([read($, stats), read($, snap)])
+    const calls = Object.values(st.tools).reduce((n, t) => n + t.n, 0)
+    const parts = [
+      s?.ctx.percent !== undefined ? `контекст ${Math.round(s.ctx.percent)}%` : undefined,
+      s?.costUsd !== undefined ? fmtUsd(s.costUsd) : undefined,
+      `інструментів ${calls}`,
+      `скілів ${Object.keys(st.skills).length}`,
+      `MCP ${Object.keys(st.mcp).length}`,
+    ].filter(Boolean)
+    return (
+      <Box flexDirection="row" gap={1}>
+        <Button
+          key="dash-toggle"
+          label="📊 Сесія"
+          onPress={async () => {
+            const isShown = (await $.ui.panes()).some(p => p.id === PANE && p.isShown)
+            if (isShown) {
+              await $.ui.close({ id: PANE })
+            } else {
+              await $.ui.open({ id: PANE, title: 'Сесія' })
+              later($, () => refresh($))
+            }
+          }}
+        />
+        <Text dimColor>{parts.join(' · ')}</Text>
+      </Box>
+    )
+  }).catch(($, e, next) => next(e))
+
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {
     const table = $.ui.resolve(e)
     const ui: UI = {
@@ -269,21 +303,31 @@ export const register: Register = on => {
       setSkillSource: src => void update($, skillSource, () => src),
       refresh: () => void refresh($),
     }
-    const body =
-      current === 'skills'
-        ? Skills(ui, d, acts)
-        : current === 'mcp'
-          ? Mcp(ui, d)
-          : current === 'agents'
-            ? Agents(ui, d)
-            : current === 'plugins'
-              ? Plugins(ui, d)
-              : current === 'context'
-                ? Context(ui, d)
-                : current === 'timeline'
-                  ? Timeline(ui, d)
-                  : Overview(ui, d)
-    const { Box } = ui
+    const { Box, Text } = ui
+    // A tab that throws leaves the header, so the person can switch away.
+    let body
+    try {
+      body =
+        current === 'skills'
+          ? Skills(ui, d, acts)
+          : current === 'mcp'
+            ? Mcp(ui, d)
+            : current === 'agents'
+              ? Agents(ui, d)
+              : current === 'plugins'
+                ? Plugins(ui, d)
+                : current === 'context'
+                  ? Context(ui, d)
+                  : current === 'timeline'
+                    ? Timeline(ui, d)
+                    : Overview(ui, d)
+    } catch (err) {
+      body = (
+        <Text color="error">
+          Вкладку не вдалося намалювати: {err instanceof Error ? err.message : String(err)}
+        </Text>
+      )
+    }
     return (
       <Box flexDirection="column" paddingX={1}>
         {Header(ui, d, current, busy, acts)}
