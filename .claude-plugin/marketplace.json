@@ -1,0 +1,12 @@
+{
+  "name": "renjeka",
+  "owner": { "name": "RenJeka" },
+  "metadata": { "description": "Моди, плагіни й скіли RenJeka для Claude Code" },
+  "plugins": [
+    {
+      "name": "session-dash",
+      "source": "./plugins/session-dash",
+      "description": "Міні-дашборд поточної сесії: скіли, MCP, агенти, плагіни, хуки, контекст і таймлайн подій"
+    }
+  ]
+}

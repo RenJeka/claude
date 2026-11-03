@@ -1,0 +1,8 @@
+{
+  "name": "session-dash",
+  "version": "0.1.0",
+  "author": { "name": "RenJeka" },
+  "license": "MIT",
+  "description": "Міні-дашборд поточної сесії: скіли, MCP, агенти, плагіни, хуки, контекст і таймлайн подій",
+  "types": "./types/index.d.ts"
+}
