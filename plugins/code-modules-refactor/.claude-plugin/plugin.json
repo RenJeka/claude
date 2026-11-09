@@ -1,0 +1,7 @@
+{
+  "name": "code-modules-refactor",
+  "version": "0.1.0",
+  "author": { "name": "RenJeka" },
+  "license": "MIT",
+  "description": "Рефакторинг до «дещо універсальних» модулів за Остерхаутом: аудит, план і виконання порціями (TypeScript, Python/Frappe)"
+}

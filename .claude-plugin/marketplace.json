@@ -1,12 +1,21 @@
 {
   "name": "renjeka",
-  "owner": { "name": "RenJeka" },
-  "metadata": { "description": "Моди, плагіни й скіли RenJeka для Claude Code" },
+  "owner": {
+    "name": "RenJeka"
+  },
+  "metadata": {
+    "description": "Моди, плагіни й скіли RenJeka для Claude Code"
+  },
   "plugins": [
     {
       "name": "session-dash",
       "source": "./plugins/session-dash",
       "description": "Міні-дашборд поточної сесії: скіли, MCP, агенти, плагіни, хуки, контекст і таймлайн подій"
+    },
+    {
+      "name": "code-modules-refactor",
+      "source": "./plugins/code-modules-refactor",
+      "description": "Рефакторинг до «дещо універсальних» модулів за Остерхаутом: аудит, план і виконання порціями (TypeScript, Python/Frappe)"
     }
   ]
 }
