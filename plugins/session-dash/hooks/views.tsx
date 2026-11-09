@@ -6,7 +6,6 @@ import {
   KIND_LABEL,
   KIND_THEME,
   PALETTE,
-  bar,
   clip,
   fmtAgo,
   fmtMs,
@@ -44,7 +43,7 @@ export const TABS: { id: string; label: string; hotkey: string }[] = [
   { id: 'skills', label: 'Скіли', hotkey: '2' },
   { id: 'mcp', label: 'MCP', hotkey: '3' },
   { id: 'agents', label: 'Агенти', hotkey: '4' },
-  { id: 'plugins', label: 'Плагіни й хуки', hotkey: '5' },
+  { id: 'plugins', label: 'Плагіни', hotkey: '5' },
   { id: 'context', label: 'Контекст', hotkey: '6' },
   { id: 'timeline', label: 'Таймлайн', hotkey: '7' },
 ]
@@ -59,63 +58,61 @@ const statusColor = (s: string) =>
   s === 'completed' ? 'success' : s === 'failed' || s === 'killed' ? 'error' : s === 'running' ? 'claude' : 'inactive'
 
 // ── Shared pieces ───────────────────────────────────────────────────────────
+// Nothing here changes on hover: every row keeps its size, so nothing moves.
 
 const Section = (ui: UI, title: string, hint: string | undefined, body: RenderElement | RenderElement[]) => {
   const { Box, Text } = ui
   return (
     <Box flexDirection="column" marginTop={1}>
       <Box flexDirection="row" gap={1}>
-        <Text weight="semibold" color="claude">
-          {title}
-        </Text>
-        {hint !== undefined && <Text dimColor>{hint}</Text>}
+        <Text weight="semibold">{title}</Text>
+        {hint !== undefined && (
+          <Text dimColor size="footnote">
+            {hint}
+          </Text>
+        )}
       </Box>
       {body}
     </Box>
   )
 }
 
-/** A row that reveals `detail` under itself while the pointer is over it. */
-const HoverRow = (ui: UI, key: string, row: RenderElement, detail: string | undefined) => {
+/** A thin bar: the filled part in `color`, the rest dim. */
+const Meter = (ui: UI, percent: number, width: number, color = 'claude') => {
+  const { Text } = ui
+  const filled = Math.max(0, Math.min(width, Math.round((percent / 100) * width)))
+  return (
+    <Text mono>
+      <Text color={color}>{'━'.repeat(filled)}</Text>
+      <Text dimColor>{'─'.repeat(width - filled)}</Text>
+    </Text>
+  )
+}
+
+/** A figure with a small label above and a small note under it. */
+const Stat = (ui: UI, key: string, label: string, value: string, note: string, color = 'text') => {
   const { Box, Text } = ui
   return (
-    <Box key={key} flexDirection="column">
-      {row}
-      {detail !== undefined && detail !== '' && (
-        <Box display="none" hover={{ display: 'flex' }} paddingLeft={2}>
-          <Text dimColor wrap="wrap">
-            ↳ {detail}
-          </Text>
-        </Box>
-      )}
+    <Box key={key} flexDirection="column" minWidth={15} paddingRight={2}>
+      <Text dimColor size="caption">
+        {label}
+      </Text>
+      <Text weight="semibold" color={color} tabular>
+        {value}
+      </Text>
+      <Text dimColor size="footnote" wrap="truncate-end">
+        {note}
+      </Text>
     </Box>
   )
 }
 
-const Tile = (ui: UI, key: string, label: string, value: string, hint: string, color = 'text') => {
-  const { Box, Text } = ui
+const Dim = (ui: UI, text: string) => {
+  const { Text } = ui
   return (
-    <Box
-      key={key}
-      flexDirection="column"
-      borderStyle="round"
-      borderColor="inactive"
-      hover={{ borderColor: 'claude' }}
-      paddingX={1}
-      minWidth={16}
-    >
-      <Text dimColor size="caption">
-        {label}
-      </Text>
-      <Text size="title" weight="bold" color={color} tabular>
-        {value}
-      </Text>
-      <Box display="none" hover={{ display: 'flex' }}>
-        <Text dimColor size="footnote" wrap="wrap">
-          {hint}
-        </Text>
-      </Box>
-    </Box>
+    <Text dimColor size="footnote">
+      {text}
+    </Text>
   )
 }
 
@@ -128,14 +125,16 @@ export const Header = (ui: UI, d: Data, tab: string, isRefreshing: boolean, acts
   return (
     <Box flexDirection="column">
       <Box flexDirection="row" gap={1} flexWrap="wrap">
-        <Text color="claude" weight="bold">
-          ◆ Сесія
+        <Text weight="semibold">{s?.model ?? '—'}</Text>
+        <Text dimColor size="footnote">
+          {fmtMs(up)} · {fmtUsd(s?.costUsd)} ·{' '}
         </Text>
-        <Text>{s?.model ?? '—'}</Text>
-        <Text dimColor>· {fmtMs(up)}</Text>
-        <Text dimColor>· {fmtUsd(s?.costUsd)}</Text>
-        <Text color={ctxColor(s?.ctx.percent)}>· контекст {s?.ctx.percent ?? '—'}%</Text>
-        <Text dimColor>· оновлено {s ? fmtAgo(s.at, d.now) : 'ще ні'}</Text>
+        <Text color={ctxColor(s?.ctx.percent)} size="footnote">
+          контекст {s?.ctx.percent ?? '—'}%
+        </Text>
+        <Text dimColor size="footnote">
+          · оновлено {s ? fmtAgo(s.at, d.now) : 'ще ні'}
+        </Text>
       </Box>
       <Box flexDirection="row" gap={1} flexWrap="wrap" marginTop={1}>
         {TABS.map(t => (
@@ -144,11 +143,10 @@ export const Header = (ui: UI, d: Data, tab: string, isRefreshing: boolean, acts
             label={t.label}
             hotkey={t.hotkey}
             variant={t.id === tab ? 'primary' : 'secondary'}
-            dimColor={t.id === tab ? undefined : true}
             onPress={() => acts.setTab(t.id)}
           />
         ))}
-        <Button key="refresh" label={isRefreshing ? 'Оновлюю…' : '↻ Оновити'} hotkey="r" onPress={() => acts.refresh()} />
+        <Button key="refresh" label={isRefreshing ? '…' : '↻'} hotkey="r" onPress={() => acts.refresh()} />
       </Box>
     </Box>
   )
@@ -171,103 +169,78 @@ export const Overview = (ui: UI, d: Data) => {
     .sort((a, b) => b[1].n - a[1].n)
     .slice(0, 8)
   const topMax = top[0]?.[1].n ?? 1
-  const barW = Math.max(6, Math.min(24, d.cols - 46))
+  const barW = Math.max(6, Math.min(20, d.cols - 50))
 
   return (
     <Box flexDirection="column">
-      <Box flexDirection="row" flexWrap="wrap" gap={1} marginTop={1}>
-        {Tile(ui, 'kpi-up', 'Тривалість', fmtMs(s ? d.now - s.startedAt : undefined), 'Від першого запуску сесії')}
-        {Tile(ui, 'kpi-prompts', 'Промпти', String(st.prompts), `Ходів моделі: ${st.turns}, разом ${fmtMs(st.turnMs)}`)}
-        {Tile(
-          ui,
-          'kpi-calls',
-          'Виклики інстр.',
-          String(calls),
-          `Помилок: ${errors}. Різних інструментів: ${Object.keys(st.tools).length}`,
-          errors > 0 ? 'warning' : 'text',
-        )}
-        {Tile(ui, 'kpi-skills', 'Скіли', `${usedSkills}/${s?.skillsTotal ?? '—'}`, 'Використано в сесії / доступно')}
-        {Tile(
-          ui,
-          'kpi-mcp',
-          'MCP сервери',
-          String(servers.size),
-          `Інструментів MCP: ${(s?.tools ?? []).filter(t => t.mcp).length}, викликів: ${Object.values(st.mcp).reduce((n, m) => n + m.n, 0)}`,
-        )}
-        {Tile(ui, 'kpi-agents', 'Агенти', String(st.agents.length), `Зараз активних: ${(s?.liveAgents ?? []).filter(a => a.status === 'running').length}`)}
-        {Tile(ui, 'kpi-cost', 'Вартість', fmtUsd(s?.costUsd), `Вихідних токенів: ${fmtTok(st.tokens.output)}`)}
-        {Tile(ui, 'kpi-compact', 'Стиснення', String(st.compactions), 'Скільки разів контекст стискали (compact)')}
+      <Box flexDirection="row" flexWrap="wrap" marginTop={1}>
+        {Stat(ui, 'kpi-prompts', 'Промпти', String(st.prompts), `ходів ${st.turns}`)}
+        {Stat(ui, 'kpi-calls', 'Виклики', String(calls), errors > 0 ? `помилок ${errors}` : `різних ${Object.keys(st.tools).length}`, errors > 0 ? 'warning' : 'text')}
+        {Stat(ui, 'kpi-skills', 'Скіли', String(usedSkills), `із ${s?.skillsTotal ?? '—'} доступних`)}
+        {Stat(ui, 'kpi-mcp', 'MCP', String(servers.size), 'серверів')}
+        {Stat(ui, 'kpi-agents', 'Агенти', String(st.agents.length), 'запусків')}
+        {Stat(ui, 'kpi-compact', 'Стиснення', String(st.compactions), 'контексту')}
       </Box>
 
-      {Section(ui, 'Контекстне вікно', s ? `${fmtTok(s.ctx.tokens)} з ${fmtTok(s.ctx.window)}` : undefined, (
+      {Section(ui, 'Контекст', s ? `${fmtTok(s.ctx.tokens)} з ${fmtTok(s.ctx.window)}` : undefined, (
         <Box flexDirection="column">
-          <Text color={ctxColor(s?.ctx.percent)} mono>
-            {bar(s?.ctx.percent ?? 0, Math.max(10, Math.min(48, d.cols - 12)))} {s?.ctx.percent ?? '—'}%
-          </Text>
-          {s?.autoCompactAt !== undefined && (
-            <Text dimColor>Автостиснення (auto-compact) на {fmtTok(s.autoCompactAt)} токенів</Text>
-          )}
+          <Box flexDirection="row" gap={1}>
+            {Meter(ui, s?.ctx.percent ?? 0, Math.max(10, Math.min(40, d.cols - 12)), ctxColor(s?.ctx.percent))}
+            <Text tabular>{s?.ctx.percent ?? '—'}%</Text>
+          </Box>
+          {s?.autoCompactAt !== undefined && Dim(ui, `автостиснення на ${fmtTok(s.autoCompactAt)}`)}
         </Box>
       ))}
 
       {s !== null && s.rateLimits.length > 0 &&
-        Section(ui, 'Ліміти використання', undefined, s.rateLimits.map((r, i) => (
-          HoverRow(
-            ui,
-            keyOf('rl', r.kind, i),
-            <Box flexDirection="row" gap={1}>
-              <Box width={12}>
-                <Text>{r.kind === 'five_hour' ? '5 годин' : r.kind === 'seven_day' ? '7 днів' : r.kind}</Text>
-              </Box>
-              <Text color={ctxColor(r.percentUsed)} mono>
-                {bar(r.percentUsed, Math.max(10, Math.min(30, d.cols - 24)))}
-              </Text>
-              <Text tabular>{r.percentUsed}%</Text>
-            </Box>,
-            r.resetsAt !== undefined ? `Скидання: ${r.resetsAt}` : undefined,
-          )
+        Section(ui, 'Ліміти', undefined, s.rateLimits.map((r, i) => (
+          <Box key={keyOf('rl', r.kind, i)} flexDirection="row" gap={1}>
+            <Box width={9}>
+              <Text dimColor>{r.kind === 'five_hour' ? '5 годин' : r.kind === 'seven_day' ? '7 днів' : r.kind}</Text>
+            </Box>
+            {Meter(ui, r.percentUsed, Math.max(10, Math.min(30, d.cols - 24)), ctxColor(r.percentUsed))}
+            <Text tabular>{r.percentUsed}%</Text>
+          </Box>
         )))}
 
-      {Section(ui, 'Найчастіші інструменти', top.length === 0 ? 'ще не було викликів' : 'наведіть для деталей', top.map(([name, t], i) =>
-        HoverRow(
-          ui,
-          keyOf('top', name, i),
-          <Box flexDirection="row" gap={1}>
-            <Box flexGrow={1} flexShrink={1} minWidth={8}>
-              <Text wrap="truncate-end" hover={{ color: 'claude' }}>
-                {name.startsWith('mcp__') ? `${mcpServerOf(name)} › ${mcpToolOf(name)}` : name}
+      {Section(ui, 'Найчастіші інструменти', top.length === 0 ? 'ще не було викликів' : undefined, top.map(([name, t], i) => (
+        <Box key={keyOf('top', name, i)} flexDirection="row" gap={1}>
+          <Box flexGrow={1} flexShrink={1} minWidth={8}>
+            <Text wrap="truncate-end">{name.startsWith('mcp__') ? `${mcpServerOf(name)} › ${mcpToolOf(name)}` : name}</Text>
+          </Box>
+          {Meter(ui, (t.n / topMax) * 100, barW)}
+          <Box width={4} justifyContent="flex-end">
+            <Text tabular>{t.n}</Text>
+          </Box>
+          <Box width={7} justifyContent="flex-end">
+            {t.errors > 0 ? (
+              <Text color="error" size="footnote">
+                ✗{t.errors}
               </Text>
-            </Box>
-            <Text color="claude" mono>
-              {bar((t.n / topMax) * 100, barW)}
-            </Text>
-            <Box width={5} justifyContent="flex-end">
-              <Text tabular>{t.n}</Text>
-            </Box>
-            {t.errors > 0 ? <Text color="error">✗{t.errors}</Text> : <Text> </Text>}
-          </Box>,
-          `Середній час: ${t.n > 0 && t.ms > 0 ? fmtMs(t.ms / t.n) : '—'} · помилок: ${t.errors} · останній: ${t.last > 0 ? fmtAgo(t.last, d.now) : 'до підключення мода'}`,
-        ),
-      ))}
+            ) : (
+              <Text dimColor size="footnote" tabular>
+                {t.n > 0 && t.ms > 0 ? fmtMs(t.ms / t.n) : ''}
+              </Text>
+            )}
+          </Box>
+        </Box>
+      )))}
 
-      {Section(ui, 'Токени за сесію', 'з відповідей моделі після підключення мода', (
+      {Section(ui, 'Токени', 'від підключення мода', (
         <Box flexDirection="row" gap={2} flexWrap="wrap">
-          <Text>
-            <Text dimColor>вхід </Text>
-            {fmtTok(st.tokens.input)}
-          </Text>
-          <Text>
-            <Text dimColor>вихід </Text>
-            {fmtTok(st.tokens.output)}
-          </Text>
-          <Text>
-            <Text dimColor>кеш-читання </Text>
-            {fmtTok(st.tokens.cacheRead)}
-          </Text>
-          <Text>
-            <Text dimColor>кеш-запис </Text>
-            {fmtTok(st.tokens.cacheWrite)}
-          </Text>
+          {[
+            ['вхід', st.tokens.input],
+            ['вихід', st.tokens.output],
+            ['кеш-читання', st.tokens.cacheRead],
+            ['кеш-запис', st.tokens.cacheWrite],
+          ].map(([k, v]) => (
+            <Text key={`tok-${k}`}>
+              <Text dimColor size="footnote">
+                {k}{' '}
+              </Text>
+              <Text tabular>{fmtTok(v as number)}</Text>
+            </Text>
+          ))}
         </Box>
       ))}
 
@@ -277,14 +250,17 @@ export const Overview = (ui: UI, d: Data) => {
             ['ID', s.sessionId],
             ['Тека', s.cwd],
             ['Репозиторій', s.repo ?? 'не git'],
-            ['Claude Code', s.version],
-            ['Поверхні', s.surfaces.join(', ') || '—'],
+            ['Версія', s.version],
           ].map(([k, v]) => (
-            <Box flexDirection="row" gap={1}>
-              <Box width={13}>
-                <Text dimColor>{k}</Text>
+            <Box key={`about-${k}`} flexDirection="row" gap={1}>
+              <Box width={12}>
+                <Text dimColor size="footnote">
+                  {k}
+                </Text>
               </Box>
-              <Text wrap="truncate-start">{v}</Text>
+              <Text wrap="truncate-start" size="footnote">
+                {v}
+              </Text>
             </Box>
           ))}
         </Box>
@@ -310,53 +286,31 @@ export const Skills = (ui: UI, d: Data, acts: Acts) => {
 
   return (
     <Box flexDirection="column">
-      <Box marginTop={1} flexDirection="row" gap={2} flexWrap="wrap">
-        <Text>
-          <Text dimColor>доступно </Text>
-          <Text weight="bold">{s?.skillsTotal ?? '—'}</Text>
-        </Text>
-        <Text>
-          <Text dimColor>у списку для моделі </Text>
-          <Text weight="bold">{s?.skillsIncluded ?? '—'}</Text>
-        </Text>
-        <Text>
-          <Text dimColor>займає </Text>
-          <Text weight="bold">~{fmtTok(listTokens)}</Text>
-          <Text dimColor> токенів</Text>
-        </Text>
-        <Text>
-          <Text dimColor>використано </Text>
-          <Text weight="bold" color="merged">
-            {used.length}
-          </Text>
-        </Text>
+      <Box flexDirection="row" flexWrap="wrap" marginTop={1}>
+        {Stat(ui, 'sk-total', 'Доступно', String(s?.skillsTotal ?? '—'), `для моделі ${s?.skillsIncluded ?? '—'}`)}
+        {Stat(ui, 'sk-tok', 'Займають', `~${fmtTok(listTokens)}`, 'токенів')}
+        {Stat(ui, 'sk-used', 'Використано', String(used.length), 'у цій сесії', 'merged')}
       </Box>
 
-      {Section(ui, 'Використані в цій сесії', used.length === 0 ? 'поки жодного' : undefined, used.map(([name, u], i) =>
-        HoverRow(
-          ui,
-          keyOf('used', name, i),
-          <Box flexDirection="row" gap={1}>
-            <Text color="merged">●</Text>
-            <Box flexGrow={1} flexShrink={1}>
-              <Text wrap="truncate-end" weight="medium" hover={{ color: 'claude' }}>
-                {name}
-              </Text>
-            </Box>
-            <Text tabular>{u.n}×</Text>
-            <Text dimColor>{u.last > 0 ? fmtAgo(u.last, d.now) : 'раніше'}</Text>
-          </Box>,
-          [
-            `джерело: ${sourceLabel(u.source)}`,
-            u.pluginName !== undefined ? `плагін: ${u.pluginName}` : undefined,
-            u.path !== undefined ? `файл: ${u.path}` : undefined,
-          ]
-            .filter(Boolean)
-            .join(' · '),
-        ),
-      ))}
+      {Section(ui, 'Використані', used.length === 0 ? 'поки жодного' : undefined, used.map(([name, u], i) => (
+        <Box key={keyOf('used', name, i)} flexDirection="row" gap={1}>
+          <Text color="merged">●</Text>
+          <Box flexGrow={1} flexShrink={1}>
+            <Text wrap="truncate-end">{name}</Text>
+          </Box>
+          <Text dimColor size="footnote">
+            {u.pluginName ?? sourceLabel(u.source)}
+          </Text>
+          <Text tabular>{u.n}×</Text>
+          <Box width={12} justifyContent="flex-end">
+            <Text dimColor size="footnote">
+              {u.last > 0 ? fmtAgo(u.last, d.now) : 'раніше'}
+            </Text>
+          </Box>
+        </Box>
+      )))}
 
-      {Section(ui, 'Усі доступні скіли', 'фільтр за джерелом:', (
+      {Section(ui, 'Усі скіли', undefined, (
         <Box flexDirection="column">
           <Box flexDirection="row" gap={1} flexWrap="wrap">
             <Button
@@ -374,30 +328,23 @@ export const Skills = (ui: UI, d: Data, acts: Acts) => {
               />
             ))}
           </Box>
-          {shown.length === 0 && <Text dimColor>Немає даних — натисніть «Оновити».</Text>}
-          {shown.map((k, i) =>
-            HoverRow(
-              ui,
-              keyOf('sk', k.name, i),
-              <Box flexDirection="row" gap={1}>
-                <Text color={k.name in st.skills ? 'merged' : 'inactive'}>{k.name in st.skills ? '●' : '○'}</Text>
-                <Box flexGrow={1} flexShrink={1}>
-                  <Text wrap="truncate-end" hover={{ color: 'claude' }}>
-                    {k.name}
-                  </Text>
-                </Box>
-                <Text dimColor>{k.pluginName ?? sourceLabel(k.source)}</Text>
-                <Box width={6} justifyContent="flex-end">
-                  <Text dimColor tabular>
-                    {fmtTok(k.tokens)}
-                  </Text>
-                </Box>
-              </Box>,
-              `джерело: ${sourceLabel(k.source)}${k.pluginName ? ` (плагін ${k.pluginName})` : ''} · опис у контексті ≈ ${k.tokens} токенів${
-                st.skills[k.name] ? ` · викликано ${st.skills[k.name]!.n}×` : ' · у цій сесії не викликався'
-              }`,
-            ),
-          )}
+          {shown.length === 0 && Dim(ui, 'Немає даних — натисніть ↻.')}
+          {shown.map((k, i) => (
+            <Box key={keyOf('sk', k.name, i)} flexDirection="row" gap={1}>
+              <Text color={k.name in st.skills ? 'merged' : 'inactive'}>{k.name in st.skills ? '●' : '○'}</Text>
+              <Box flexGrow={1} flexShrink={1}>
+                <Text wrap="truncate-end">{k.name}</Text>
+              </Box>
+              <Text dimColor size="footnote">
+                {k.pluginName ?? sourceLabel(k.source)}
+              </Text>
+              <Box width={6} justifyContent="flex-end">
+                <Text dimColor size="footnote" tabular>
+                  {fmtTok(k.tokens)}
+                </Text>
+              </Box>
+            </Box>
+          ))}
         </Box>
       ))}
     </Box>
@@ -436,35 +383,36 @@ export const Mcp = (ui: UI, d: Data) => {
 
   return (
     <Box flexDirection="column">
-      {Section(ui, 'Підключені сервери', `${rows.length} · наведіть, щоб побачити інструменти`, [
-        <Box flexDirection="row" gap={1}>
+      {Section(ui, 'Сервери', String(rows.length), [
+        <Box key="mcp-head" flexDirection="row" gap={1}>
           <Box flexGrow={1}>
-            <Text dimColor size="caption">сервер</Text>
+            <Text dimColor size="caption">
+              сервер
+            </Text>
           </Box>
           <Box width={9} justifyContent="flex-end">
-            <Text dimColor size="caption">інстр.</Text>
+            <Text dimColor size="caption">
+              інструменти
+            </Text>
           </Box>
-          <Box width={9} justifyContent="flex-end">
-            <Text dimColor size="caption">токени</Text>
+          <Box width={7} justifyContent="flex-end">
+            <Text dimColor size="caption">
+              токени
+            </Text>
           </Box>
-          <Box width={8} justifyContent="flex-end">
-            <Text dimColor size="caption">виклики</Text>
+          <Box width={7} justifyContent="flex-end">
+            <Text dimColor size="caption">
+              виклики
+            </Text>
           </Box>
         </Box>,
         ...rows.map(([name, srv], i) => {
           const c = st.mcp[name]
-          const perTool = Object.entries(st.tools)
-            .filter(([t]) => mcpServerOf(t) === name)
-            .map(([t, v]) => `${mcpToolOf(t)} ×${v.n}`)
-          return HoverRow(
-            ui,
-            keyOf('mcp', name, i),
-            <Box flexDirection="row" gap={1}>
+          return (
+            <Box key={keyOf('mcp', name, i)} flexDirection="row" gap={1}>
               <Text color={c && c.n > 0 ? 'ide' : 'inactive'}>{c && c.n > 0 ? '●' : '○'}</Text>
               <Box flexGrow={1} flexShrink={1}>
-                <Text wrap="truncate-end" hover={{ color: 'claude' }}>
-                  {name}
-                </Text>
+                <Text wrap="truncate-end">{name}</Text>
               </Box>
               <Box width={9} justifyContent="flex-end">
                 <Text tabular>
@@ -472,49 +420,34 @@ export const Mcp = (ui: UI, d: Data) => {
                   {srv.tools.length}
                 </Text>
               </Box>
-              <Box width={9} justifyContent="flex-end">
-                <Text dimColor tabular>
+              <Box width={7} justifyContent="flex-end">
+                <Text dimColor size="footnote" tabular>
                   {srv.tokens > 0 ? fmtTok(srv.tokens) : '—'}
                 </Text>
               </Box>
-              <Box width={8} justifyContent="flex-end">
+              <Box width={7} justifyContent="flex-end">
                 <Text tabular color={c && c.errors > 0 ? 'warning' : 'text'}>
                   {c?.n ?? 0}
                   {c && c.errors > 0 ? ` ✗${c.errors}` : ''}
                 </Text>
               </Box>
-            </Box>,
-            [
-              perTool.length > 0 ? `викликано: ${perTool.join(', ')}` : undefined,
-              srv.tools.length > 0
-                ? `інструменти (${srv.loaded} завантажено з ${srv.tools.length}): ${clip(srv.tools.join(', '), 600)}`
-                : undefined,
-              c && c.n > 0 && c.ms > 0 ? `середній час: ${fmtMs(c.ms / c.n)}` : undefined,
-            ]
-              .filter(Boolean)
-              .join('\n↳ '),
+            </Box>
           )
         }),
       ])}
-      <Text dimColor size="footnote">
-        «інстр.» — завантажено/усього: решта схем відкладена (deferred) і підвантажується через пошук інструментів.
-      </Text>
+      {Dim(ui, 'інструменти: завантажено / усього; решта підвантажується на вимогу')}
 
-      {Section(ui, 'Останні виклики MCP', recent.length === 0 ? 'після підключення мода ще не було' : undefined, recent.map((e, i) =>
-        HoverRow(
-          ui,
-          keyOf('mcpc', e.id, i),
-          <Box flexDirection="row" gap={1}>
-            <Text color={e.isError ? 'error' : 'success'}>{e.isError ? '✗' : '✓'}</Text>
-            <Box flexGrow={1} flexShrink={1}>
-              <Text wrap="truncate-end">{e.label}</Text>
-            </Box>
-            <Text dimColor>{fmtMs(e.ms)}</Text>
-            <Text dimColor>{fmtAgo(e.at, d.now)}</Text>
-          </Box>,
-          e.detail,
-        ),
-      ))}
+      {Section(ui, 'Останні виклики', recent.length === 0 ? 'ще не було' : undefined, recent.map((e, i) => (
+        <Box key={keyOf('mcpc', e.id, i)} flexDirection="row" gap={1}>
+          <Text color={e.isError ? 'error' : 'success'}>{e.isError ? '✗' : '✓'}</Text>
+          <Box flexGrow={1} flexShrink={1}>
+            <Text wrap="truncate-end">{e.label}</Text>
+          </Box>
+          <Text dimColor size="footnote">
+            {fmtMs(e.ms)} · {fmtAgo(e.at, d.now)}
+          </Text>
+        </Box>
+      )))}
     </Box>
   )
 }
@@ -535,56 +468,51 @@ export const Agents = (ui: UI, d: Data) => {
       {byType.size > 0 && (
         <Box flexDirection="row" gap={2} marginTop={1} flexWrap="wrap">
           {[...byType.entries()].map(([t, n]) => (
-            <Text>
+            <Text key={`bt-${t}`}>
               <Text color="warning">{t}</Text>
-              <Text dimColor> ×{n}</Text>
+              <Text dimColor size="footnote">
+                {' '}
+                ×{n}
+              </Text>
             </Text>
           ))}
         </Box>
       )}
-      {Section(ui, 'Запуски агентів у сесії', runs.length === 0 ? 'поки жодного' : undefined, runs.map((a, i) => {
+      {Section(ui, 'Запуски', runs.length === 0 ? 'поки жодного' : undefined, runs.map((a, i) => {
         const status = live.get(a.id)?.status ?? a.status
-        return HoverRow(
-          ui,
-          keyOf('ag', a.id, i),
-          <Box flexDirection="row" gap={1}>
+        return (
+          <Box key={keyOf('ag', a.id, i)} flexDirection="row" gap={1}>
             <Text color={statusColor(status)}>{statusIcon(status)}</Text>
-            <Box width={18}>
+            <Box width={16}>
               <Text color="warning" wrap="truncate-end">
                 {a.type}
               </Text>
             </Box>
             <Box flexGrow={1} flexShrink={1}>
-              <Text wrap="truncate-end" hover={{ color: 'claude' }}>
-                {a.description || '—'}
-              </Text>
+              <Text wrap="truncate-end">{a.description || '—'}</Text>
             </Box>
-            <Text dimColor>{a.ms !== undefined ? fmtMs(a.ms) : status === 'running' ? 'працює' : ''}</Text>
-          </Box>,
-          `стан: ${status} · id: ${a.id}${a.at > 0 ? ` · запущено ${fmtAgo(a.at, d.now)}` : ' · запущено до підключення мода'}`,
+            <Text dimColor size="footnote">
+              {a.ms !== undefined ? fmtMs(a.ms) : status === 'running' ? 'працює' : ''}
+            </Text>
+          </Box>
         )
       }))}
 
-      {Section(ui, 'Власні типи агентів', `${(s?.customAgents ?? []).length} · вбудовані не показано`, (s?.customAgents ?? []).map((a, i) =>
-        HoverRow(
-          ui,
-          keyOf('ca', a.agentType, i),
-          <Box flexDirection="row" gap={1}>
-            <Box flexGrow={1} flexShrink={1}>
-              <Text wrap="truncate-end" hover={{ color: 'claude' }}>
-                {a.agentType}
-              </Text>
-            </Box>
-            <Text dimColor>{sourceLabel(a.source)}</Text>
-            <Box width={6} justifyContent="flex-end">
-              <Text dimColor tabular>
-                {fmtTok(a.tokens)}
-              </Text>
-            </Box>
-          </Box>,
-          `опис агента в контексті ≈ ${a.tokens} токенів`,
-        ),
-      ))}
+      {Section(ui, 'Власні типи агентів', String((s?.customAgents ?? []).length), (s?.customAgents ?? []).map((a, i) => (
+        <Box key={keyOf('ca', a.agentType, i)} flexDirection="row" gap={1}>
+          <Box flexGrow={1} flexShrink={1}>
+            <Text wrap="truncate-end">{a.agentType}</Text>
+          </Box>
+          <Text dimColor size="footnote">
+            {sourceLabel(a.source)}
+          </Text>
+          <Box width={6} justifyContent="flex-end">
+            <Text dimColor size="footnote" tabular>
+              {fmtTok(a.tokens)}
+            </Text>
+          </Box>
+        </Box>
+      )))}
     </Box>
   )
 }
@@ -602,87 +530,73 @@ export const Plugins = (ui: UI, d: Data) => {
   return (
     <Box flexDirection="column">
       {Section(ui, 'Плагіни', `${(s?.plugins ?? []).filter(p => p.isEnabled).length} увімкнено`, (s?.plugins ?? []).map((p, i) => {
-        const cmds = commands.filter(c => c.plugin !== undefined && base(p.name) === c.plugin).map(c => `/${c.name}`)
-        const skills = (s?.skills ?? []).filter(k => k.pluginName !== undefined && base(p.name) === k.pluginName)
-        return HoverRow(
-          ui,
-          keyOf('pl', p.name, i),
-          <Box flexDirection="row" gap={1}>
+        const cmds = commands.filter(c => c.plugin !== undefined && base(p.name) === c.plugin).length
+        const skills = (s?.skills ?? []).filter(k => k.pluginName !== undefined && base(p.name) === k.pluginName).length
+        return (
+          <Box key={keyOf('pl', p.name, i)} flexDirection="row" gap={1}>
             <Text color={p.isEnabled ? 'success' : 'inactive'}>{p.isEnabled ? '●' : '○'}</Text>
             <Box flexGrow={1} flexShrink={1}>
-              <Text wrap="truncate-end" dimColor={!p.isEnabled} hover={{ color: 'claude' }}>
+              <Text wrap="truncate-end" dimColor={!p.isEnabled}>
                 {p.name}
               </Text>
             </Box>
-            <Text dimColor>
-              {skills.length > 0 ? `скілів ${skills.length}` : ''}
-              {skills.length > 0 && cmds.length > 0 ? ' · ' : ''}
-              {cmds.length > 0 ? `команд ${cmds.length}` : ''}
+            <Text dimColor size="footnote">
+              {[skills > 0 ? `скілів ${skills}` : '', cmds > 0 ? `команд ${cmds}` : ''].filter(Boolean).join(' · ')}
             </Text>
-          </Box>,
-          [
-            p.isEnabled ? 'увімкнено' : 'вимкнено',
-            skills.length > 0 ? `скіли: ${clip(skills.map(k => k.name).join(', '), 300)}` : undefined,
-            cmds.length > 0 ? `команди: ${clip(cmds.join(' '), 300)}` : undefined,
-          ]
-            .filter(Boolean)
-            .join(' · '),
+          </Box>
         )
       }))}
 
-      {Section(ui, 'Хуки з налаштувань', (s?.hooks ?? []).length === 0 ? 'не налаштовано' : 'подія → кількість', (
+      {Section(ui, 'Хуки з налаштувань', (s?.hooks ?? []).length === 0 ? 'не налаштовано' : undefined, (
         <Box flexDirection="row" gap={2} flexWrap="wrap">
           {(s?.hooks ?? []).map(hook => (
-            <Text>
+            <Text key={`hook-${hook.event}`}>
               <Text color="permission">{hook.event}</Text>
-              <Text dimColor> ×{hook.count}</Text>
+              <Text dimColor size="footnote">
+                {' '}
+                ×{hook.count}
+              </Text>
             </Text>
           ))}
         </Box>
       ))}
 
-      {Section(ui, 'Слеш-команди', `${commands.length} · наведіть для списку`, [...bySource.entries()].map(([src, names], i) =>
-        HoverRow(
-          ui,
-          keyOf('cmd', src, i),
-          <Box flexDirection="row" gap={1}>
-            <Box width={14}>
-              <Text hover={{ color: 'claude' }}>{sourceLabel(src)}</Text>
-            </Box>
-            <Text color="claude" mono>
-              {bar(pct(names.length, commands.length), Math.max(6, Math.min(24, d.cols - 26)))}
-            </Text>
-            <Text tabular>{names.length}</Text>
-          </Box>,
-          clip(names.map(n => `/${n}`).join(' '), 700),
-        ),
-      ))}
+      {Section(ui, 'Слеш-команди', String(commands.length), [...bySource.entries()].map(([src, names], i) => (
+        <Box key={keyOf('cmd', src, i)} flexDirection="row" gap={1}>
+          <Box width={12}>
+            <Text>{sourceLabel(src)}</Text>
+          </Box>
+          {Meter(ui, pct(names.length, commands.length), Math.max(6, Math.min(20, d.cols - 26)))}
+          <Text tabular>{names.length}</Text>
+        </Box>
+      )))}
 
-      {Section(ui, 'Файли пам’яті та інструкцій', 'CLAUDE.md, правила, автопам’ять', (s?.memoryFiles ?? []).map((f, i) =>
-        HoverRow(
-          ui,
-          keyOf('mem', f.path, i),
-          <Box flexDirection="row" gap={1}>
-            <Box width={9}>
-              <Text color="remember">{f.type}</Text>
-            </Box>
-            <Box flexGrow={1} flexShrink={1}>
-              <Text wrap="truncate-start" hover={{ color: 'claude' }}>
-                {f.path}
-              </Text>
-            </Box>
-            <Box width={6} justifyContent="flex-end">
-              <Text dimColor tabular>
-                {fmtTok(f.tokens)}
-              </Text>
-            </Box>
-          </Box>,
-          `${f.path} · ≈ ${f.tokens} токенів`,
-        ),
-      ))}
+      {Section(ui, 'Пам’ять та інструкції', 'CLAUDE.md, правила', (s?.memoryFiles ?? []).map((f, i) => (
+        <Box key={keyOf('mem', f.path, i)} flexDirection="row" gap={1}>
+          <Box width={9}>
+            <Text color="remember" size="footnote">
+              {f.type}
+            </Text>
+          </Box>
+          <Box flexGrow={1} flexShrink={1}>
+            <Text wrap="truncate-start" size="footnote">
+              {f.path}
+            </Text>
+          </Box>
+          <Box width={6} justifyContent="flex-end">
+            <Text dimColor size="footnote" tabular>
+              {fmtTok(f.tokens)}
+            </Text>
+          </Box>
+        </Box>
+      )))}
 
       {s !== null && s.problems.length > 0 &&
-        Section(ui, 'Що не вдалося прочитати', undefined, s.problems.map(p => <Text dimColor>{clip(p, 200)}</Text>))}
+        Section(ui, 'Не вдалося прочитати', undefined, s.problems.map((p, i) => (
+          <Text key={`pr-${i}`} dimColor size="footnote">
+            {clip(p, 200)}
+          </Text>
+        )))}
     </Box>
   )
 }
@@ -699,26 +613,21 @@ const contextSvg = (s: DashSnap) => {
   used.forEach((c, i) => {
     const w = (c.tokens / total) * W
     const color = c.kind === 'free' ? '#9993' : c.kind === 'buffer' ? '#9997' : PALETTE[i % PALETTE.length]
-    const tip = xml(`${c.name}: ${fmtTok(c.tokens)} токенів (${pct(c.tokens, total)}%)`)
-    segs.push(
-      `<rect x="${x.toFixed(1)}" y="0" width="${Math.max(0.5, w).toFixed(1)}" height="28" rx="3" fill="${color}"><title>${tip}</title></rect>`,
-    )
+    segs.push(`<rect x="${x.toFixed(1)}" y="0" width="${Math.max(0.5, w).toFixed(1)}" height="14" fill="${color}"/>`)
     const col = i % 3
     const row = Math.floor(i / 3)
     legend.push(
-      `<g transform="translate(${col * 214},${40 + row * 20})"><rect width="11" height="11" rx="2" fill="${color}"/><text x="17" y="10" font-size="12" font-family="system-ui,sans-serif" fill="#8a8a8a">${xml(clip(c.name, 22))} · ${fmtTok(c.tokens)}</text><title>${tip}</title></g>`,
+      `<g transform="translate(${col * 214},${26 + row * 18})"><rect width="9" height="9" rx="2" fill="${color}"/><text x="15" y="9" font-size="11" font-family="system-ui,sans-serif" fill="#8a8a8a">${xml(clip(c.name, 22))} · ${fmtTok(c.tokens)}</text></g>`,
     )
     x += w
   })
   if (s.autoCompactAt !== undefined) {
     const ax = (s.autoCompactAt / total) * W
-    segs.push(
-      `<line x1="${ax.toFixed(1)}" x2="${ax.toFixed(1)}" y1="-4" y2="32" stroke="#e06c75" stroke-width="2" stroke-dasharray="3 2"><title>${xml(`Поріг автостиснення: ${fmtTok(s.autoCompactAt)}`)}</title></line>`,
-    )
+    segs.push(`<line x1="${ax.toFixed(1)}" x2="${ax.toFixed(1)}" y1="-3" y2="17" stroke="#e06c75" stroke-width="1.5"/>`)
   }
-  const height = 40 + Math.ceil(used.length / 3) * 20 + 6
+  const height = 26 + Math.ceil(used.length / 3) * 18
   return {
-    source: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -6 ${W} ${height + 6}" width="${W}" height="${height + 6}">${segs.join('')}${legend.join('')}</svg>`,
+    source: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -4 ${W} ${height + 4}" width="${W}" height="${height + 4}"><clipPath id="r"><rect width="${W}" height="14" rx="7"/></clipPath><g clip-path="url(#r)">${segs.filter(p => p.startsWith('<rect')).join('')}</g>${segs.filter(p => !p.startsWith('<rect')).join('')}${legend.join('')}</svg>`,
     alt: used.map(c => `${c.name} ${fmtTok(c.tokens)}`).join(', '),
   }
 }
@@ -727,58 +636,44 @@ export const Context = (ui: UI, d: Data) => {
   const { Box, Text, Svg } = ui
   const s = d.snap
   const st = d.stats
-  if (s === null) return <Text dimColor>Немає знімка — натисніть «Оновити».</Text>
+  if (s === null) return Dim(ui, 'Немає знімка — натисніть ↻.')
   const total = Math.max(1, s.ctxMax)
   const cacheBase = st.tokens.input + st.tokens.cacheRead + st.tokens.cacheWrite
-  const svg = contextSvg(s)
 
   return (
     <Box flexDirection="column">
-      <Box flexDirection="row" gap={2} marginTop={1} flexWrap="wrap">
-        {Tile(ui, 'ctx-pct', 'Заповнено', `${s.ctx.percent ?? pct(s.ctxTotal, total)}%`, 'Частка вікна за останньою відповіддю моделі', ctxColor(s.ctx.percent))}
-        {Tile(ui, 'ctx-tok', 'Токенів', fmtTok(s.ctx.tokens ?? s.ctxTotal), `Вікно моделі: ${fmtTok(s.ctx.window)}`)}
-        {Tile(ui, 'ctx-cache', 'Кеш', `${pct(st.tokens.cacheRead, cacheBase)}%`, 'Частка вхідних токенів, прочитаних із кешу підказок (prompt cache)', 'success')}
-        {Tile(ui, 'ctx-cmp', 'Стиснень', String(st.compactions), s.autoCompactAt !== undefined ? `Автостиснення на ${fmtTok(s.autoCompactAt)}` : 'Автостиснення вимкнено')}
+      <Box flexDirection="row" flexWrap="wrap" marginTop={1}>
+        {Stat(ui, 'ctx-pct', 'Заповнено', `${s.ctx.percent ?? pct(s.ctxTotal, total)}%`, `вікно ${fmtTok(s.ctx.window)}`, ctxColor(s.ctx.percent))}
+        {Stat(ui, 'ctx-tok', 'Токенів', fmtTok(s.ctx.tokens ?? s.ctxTotal), 'зараз у контексті')}
+        {Stat(ui, 'ctx-cache', 'Кеш', `${pct(st.tokens.cacheRead, cacheBase)}%`, 'входу з кешу', 'success')}
+        {Stat(ui, 'ctx-cmp', 'Стиснень', String(st.compactions), s.autoCompactAt !== undefined ? `поріг ${fmtTok(s.autoCompactAt)}` : 'авто вимкнено')}
       </Box>
 
-      {Section(ui, 'З чого складається контекст', Svg ? 'наведіть на смугу' : undefined, (
+      {Section(ui, 'Склад контексту', undefined, (
         <Box flexDirection="column">
-          {Svg !== undefined ? (
-            <Svg source={svg.source} alt={svg.alt} isInteractive />
-          ) : (
-            <Text dimColor>Графік доступний у застосунку; нижче — таблиця.</Text>
-          )}
-          {s.categories.map((c, i) =>
-            HoverRow(
-              ui,
-              keyOf('cat', c.name, i),
-              <Box flexDirection="row" gap={1}>
-                <Box flexGrow={1} flexShrink={1}>
-                  <Text wrap="truncate-end" dimColor={c.kind !== 'used'} hover={{ color: 'claude' }}>
-                    {c.name}
-                  </Text>
-                </Box>
-                <Text color={c.kind === 'used' ? 'claude' : 'inactive'} mono>
-                  {bar(pct(c.tokens, total), Math.max(6, Math.min(24, d.cols - 34)))}
+          {Svg !== undefined && (() => {
+            const svg = contextSvg(s)
+            return <Svg source={svg.source} alt={svg.alt} />
+          })()}
+          {s.categories.map((c, i) => (
+            <Box key={keyOf('cat', c.name, i)} flexDirection="row" gap={1}>
+              <Box flexGrow={1} flexShrink={1}>
+                <Text wrap="truncate-end" dimColor={c.kind !== 'used'}>
+                  {c.name}
                 </Text>
-                <Box width={7} justifyContent="flex-end">
-                  <Text tabular>{fmtTok(c.tokens)}</Text>
-                </Box>
-                <Box width={5} justifyContent="flex-end">
-                  <Text dimColor tabular>
-                    {pct(c.tokens, total)}%
-                  </Text>
-                </Box>
-              </Box>,
-              c.kind === 'deferred'
-                ? 'Схеми інструментів, що підвантажуються на вимогу: у вікно не входять'
-                : c.kind === 'free'
-                  ? 'Вільне місце у вікні'
-                  : c.kind === 'buffer'
-                    ? 'Запас під автостиснення'
-                    : `${c.tokens} токенів`,
-            ),
-          )}
+              </Box>
+              {Meter(ui, pct(c.tokens, total), Math.max(6, Math.min(20, d.cols - 34)), c.kind === 'used' ? 'claude' : 'inactive')}
+              <Box width={6} justifyContent="flex-end">
+                <Text tabular>{fmtTok(c.tokens)}</Text>
+              </Box>
+              <Box width={5} justifyContent="flex-end">
+                <Text dimColor size="footnote" tabular>
+                  {pct(c.tokens, total)}%
+                </Text>
+              </Box>
+            </Box>
+          ))}
+          {Dim(ui, 'тьмяні рядки — вільне місце, запас і схеми, що підвантажуються на вимогу')}
         </Box>
       ))}
     </Box>
@@ -798,18 +693,18 @@ const LANES: { id: string; label: string; kinds: string[] }[] = [
 ]
 
 const timelineSvg = (events: DashEvent[], t0: number, t1: number) => {
-  const L = 92
+  const L = 84
   const W = 640
   const plot = W - L - 8
-  const laneH = 22
+  const laneH = 18
   const span = Math.max(1000, t1 - t0)
   const X = (t: number) => L + ((t - t0) / span) * plot
   const parts: string[] = []
   LANES.forEach((lane, i) => {
     const y = i * laneH
     parts.push(
-      `<rect x="${L}" y="${y + 2}" width="${plot}" height="${laneH - 4}" rx="4" fill="#8881"/>`,
-      `<text x="0" y="${y + 15}" font-size="12" font-family="system-ui,sans-serif" fill="#8a8a8a">${lane.label}</text>`,
+      `<line x1="${L}" x2="${W - 8}" y1="${y + laneH / 2}" y2="${y + laneH / 2}" stroke="#8883"/>`,
+      `<text x="0" y="${y + 13}" font-size="11" font-family="system-ui,sans-serif" fill="#8a8a8a">${lane.label}</text>`,
     )
   })
   for (const e of events) {
@@ -817,30 +712,23 @@ const timelineSvg = (events: DashEvent[], t0: number, t1: number) => {
     if (lane === -1) continue
     const y = lane * laneH
     const color = e.isError ? '#e06c75' : KIND_COLOR[e.kind] ?? '#999'
-    const tip = xml(
-      `${KIND_LABEL[e.kind] ?? e.kind}: ${e.label}\n+${fmtMs(e.at - t0)}${e.ms !== undefined ? ` · ${fmtMs(e.ms)}` : ''}${e.isError ? ' · помилка' : ''}${e.detail ? `\n${clip(e.detail, 200)}` : ''}`,
-    )
     if (e.ms !== undefined && e.ms > 0) {
       const w = Math.max(3, X(e.at + e.ms) - X(e.at))
       parts.push(
-        `<rect x="${X(e.at).toFixed(1)}" y="${y + 5}" width="${w.toFixed(1)}" height="${laneH - 10}" rx="2" fill="${color}" fill-opacity="${e.isSub ? 0.55 : 0.9}"><title>${tip}</title></rect>`,
+        `<rect x="${X(e.at).toFixed(1)}" y="${y + 5}" width="${w.toFixed(1)}" height="${laneH - 10}" rx="2" fill="${color}" fill-opacity="${e.isSub ? 0.5 : 0.85}"/>`,
       )
     } else {
-      parts.push(
-        `<circle cx="${X(e.at).toFixed(1)}" cy="${y + laneH / 2}" r="4" fill="${color}"><title>${tip}</title></circle>`,
-      )
+      parts.push(`<circle cx="${X(e.at).toFixed(1)}" cy="${y + laneH / 2}" r="3" fill="${color}"/>`)
     }
   }
-  const axisY = LANES.length * laneH + 4
+  const axisY = LANES.length * laneH + 2
   for (let k = 0; k <= 4; k++) {
     const t = t0 + (span * k) / 4
-    const x = X(t)
     parts.push(
-      `<line x1="${x.toFixed(1)}" x2="${x.toFixed(1)}" y1="0" y2="${axisY}" stroke="#8883"/>`,
-      `<text x="${x.toFixed(1)}" y="${axisY + 13}" font-size="11" text-anchor="${k === 0 ? 'start' : k === 4 ? 'end' : 'middle'}" font-family="system-ui,sans-serif" fill="#8a8a8a">+${fmtMs(t - t0)}</text>`,
+      `<text x="${X(t).toFixed(1)}" y="${axisY + 11}" font-size="10" text-anchor="${k === 0 ? 'start' : k === 4 ? 'end' : 'middle'}" font-family="system-ui,sans-serif" fill="#8a8a8a">+${fmtMs(t - t0)}</text>`,
     )
   }
-  const H = axisY + 18
+  const H = axisY + 16
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">${parts.join('')}</svg>`
 }
 
@@ -849,18 +737,22 @@ const textLanes = (ui: UI, events: DashEvent[], t0: number, t1: number, width: n
   const { Box, Text } = ui
   const span = Math.max(1000, t1 - t0)
   return LANES.map(lane => {
-    const cells = Array.from({ length: width }, () => '·')
+    const cells = Array.from({ length: width }, () => '─')
+    let hits = 0
     for (const e of events) {
       if (!lane.kinds.includes(e.kind)) continue
       const c = Math.min(width - 1, Math.floor(((e.at - t0) / span) * width))
       cells[c] = e.isError ? '✗' : '●'
+      hits += 1
     }
     return (
-      <Box flexDirection="row" gap={1}>
+      <Box key={`lane-${lane.id}`} flexDirection="row" gap={1}>
         <Box width={12}>
-          <Text dimColor>{lane.label}</Text>
+          <Text dimColor size="footnote">
+            {lane.label}
+          </Text>
         </Box>
-        <Text color={KIND_THEME[lane.kinds[0] ?? 'tool']} mono>
+        <Text color={hits > 0 ? KIND_THEME[lane.kinds[0] ?? 'tool'] : 'inactive'} mono>
           {cells.join('')}
         </Text>
       </Box>
@@ -882,54 +774,42 @@ export const Timeline = (ui: UI, d: Data) => {
     <Box flexDirection="column">
       <Box flexDirection="row" gap={2} marginTop={1} flexWrap="wrap">
         {[...counts.entries()].map(([k, n]) => (
-          <Text>
-            <Text color={KIND_THEME[k]}>● {KIND_LABEL[k] ?? k}</Text>
-            <Text dimColor> {n}</Text>
+          <Text key={`cnt-${k}`}>
+            <Text color={KIND_THEME[k]}>●</Text>
+            <Text dimColor size="footnote">
+              {' '}
+              {KIND_LABEL[k] ?? k} {n}
+            </Text>
           </Text>
         ))}
       </Box>
-      {st.backfilled > 0 && (
-        <Text dimColor size="footnote">
-          До підключення мода було {st.backfilled} викликів інструментів — вони враховані в лічильниках, але без часу, тож на шкалі їх немає.
-        </Text>
-      )}
-      {Section(ui, 'Шкала часу', `від ${fmtAgo(t0, d.now).replace(' тому', '')} тому до зараз${Svg ? ' · наведіть на позначку' : ''}`, (
+      {Section(ui, 'Шкала часу', `за ${fmtMs(t1 - t0)}`, (
         Svg !== undefined ? (
-          <Svg
-            source={timelineSvg(ev, t0, t1)}
-            alt={`Шкала подій: ${ev.length} подій за ${fmtMs(t1 - t0)}`}
-            isInteractive
-          />
+          <Svg source={timelineSvg(ev, t0, t1)} alt={`Шкала подій: ${ev.length} подій за ${fmtMs(t1 - t0)}`} />
         ) : (
-          <Box flexDirection="column">{textLanes(ui, ev, t0, t1, Math.max(10, Math.min(80, d.cols - 16)))}</Box>
+          <Box flexDirection="column">{textLanes(ui, ev, t0, t1, Math.max(10, Math.min(70, d.cols - 16)))}</Box>
         )
       ))}
-      {Section(ui, 'Останні події', recent.length === 0 ? 'ще нічого' : 'новіші вгорі · наведіть для деталей', recent.map((e, i) =>
-        HoverRow(
-          ui,
-          keyOf('ev', e.id, i),
-          <Box flexDirection="row" gap={1}>
-            <Box width={9}>
-              <Text dimColor tabular>
-                +{fmtMs(e.at - t0)}
-              </Text>
-            </Box>
-            <Box width={12}>
-              <Text color={e.isError ? 'error' : KIND_THEME[e.kind]}>{KIND_LABEL[e.kind] ?? e.kind}</Text>
-            </Box>
-            <Box flexGrow={1} flexShrink={1}>
-              <Text wrap="truncate-end" dimColor={e.isSub} hover={{ color: 'claude' }}>
-                {e.isSub ? '↳ ' : ''}
-                {e.label}
-              </Text>
-            </Box>
-            <Text dimColor>{e.ms !== undefined ? fmtMs(e.ms) : ''}</Text>
-          </Box>,
-          [e.detail, e.isSub ? 'усередині субагента' : undefined, e.isError ? 'завершилось помилкою' : undefined]
-            .filter(Boolean)
-            .join(' · '),
-        ),
-      ))}
+      {st.backfilled > 0 && Dim(ui, `ще ${st.backfilled} викликів були до підключення мода — без часу, тож на шкалі їх немає`)}
+      {Section(ui, 'Останні події', recent.length === 0 ? 'ще нічого' : 'новіші вгорі', recent.map((e, i) => (
+        <Box key={keyOf('ev', e.id, i)} flexDirection="row" gap={1}>
+          <Box width={8}>
+            <Text dimColor size="footnote" tabular>
+              +{fmtMs(e.at - t0)}
+            </Text>
+          </Box>
+          <Text color={e.isError ? 'error' : KIND_THEME[e.kind]}>●</Text>
+          <Box flexGrow={1} flexShrink={1}>
+            <Text wrap="truncate-end" dimColor={e.isSub}>
+              {e.isSub ? '↳ ' : ''}
+              {e.label}
+            </Text>
+          </Box>
+          <Text dimColor size="footnote">
+            {e.ms !== undefined ? fmtMs(e.ms) : ''}
+          </Text>
+        </Box>
+      )))}
     </Box>
   )
 }

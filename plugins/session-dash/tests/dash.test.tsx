@@ -34,7 +34,7 @@ test('every tab draws, on every surface, after a tool call', async ($, on) => {
 
   for (const surface of ['terminal', 'desktop', 'vscode', 'mobile'] as const) {
     const ui = await $.ui.mount({ ...PANE, surface })
-    expect((await ui.find({ type: 'Text', text: /Сесія/ }))?.text).toContain('Сесія')
+    expect((await ui.find({ type: 'Text', text: /оновлено/ }))?.text).toMatch(/оновлено/)
 
     for (const tab of TABS) {
       await ui.press({ key: `tab-${tab}` })
@@ -81,6 +81,6 @@ test('a value an earlier version stored is declined', async ($, on) => {
   on('state.get', () => ({ value: { value: [{ bogus: true }], version: 1 } }))
 
   const ui = await $.ui.mount({ ...PANE, surface: 'desktop' })
-  expect((await ui.find({ type: 'Text', text: /Сесія/ }))?.text).toMatch(/Сесія/)
+  expect((await ui.find({ type: 'Text', text: /оновлено/ }))?.text).toMatch(/оновлено/)
   await ui.unmount()
 })
