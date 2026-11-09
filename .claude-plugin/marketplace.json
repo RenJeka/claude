@@ -13,8 +13,8 @@
       "description": "Міні-дашборд поточної сесії: скіли, MCP, агенти, плагіни, хуки, контекст і таймлайн подій"
     },
     {
-      "name": "somewhat-general-purpose-refactor",
-      "source": "./plugins/somewhat-general-purpose-refactor",
+      "name": "code-modules-refactor",
+      "source": "./plugins/code-modules-refactor",
       "description": "Рефакторинг до «дещо універсальних» модулів за Остерхаутом: аудит, план і виконання порціями (TypeScript, Python/Frappe)"
     }
   ]
